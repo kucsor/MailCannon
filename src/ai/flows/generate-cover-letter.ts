@@ -10,7 +10,9 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import {parseResume} from '@/lib/parse-resume';
 
+// Schema for the AI Flow (Internal)
 const GeneratePersonalizedApplicationInputSchema = z.object({
   recipientEmail: z.string().email().describe("The email address of the recipient."),
   cv: z.string().describe("The applicant's CV text content."),
@@ -27,8 +29,42 @@ const GeneratePersonalizedApplicationOutputSchema = z.object({
 
 export type GeneratePersonalizedApplicationOutput = z.infer<typeof GeneratePersonalizedApplicationOutputSchema>;
 
-export async function generatePersonalizedApplication(input: GeneratePersonalizedApplicationInput): Promise<GeneratePersonalizedApplicationOutput> {
-  return generatePersonalizedApplicationFlow(input);
+// Schema for the Server Action (Public) - allows file upload or raw text
+const ActionInputSchema = z.object({
+  recipientEmail: z.string().email(),
+  cv: z.string().optional(),
+  cvFile: z.string().optional(), // base64 string
+  cvMimeType: z.string().optional(),
+  jobDescription: z.string().optional(),
+  personalNotes: z.string().optional(),
+});
+
+export type GeneratePersonalizedApplicationActionInput = z.infer<typeof ActionInputSchema>;
+
+export async function generatePersonalizedApplication(input: GeneratePersonalizedApplicationActionInput): Promise<GeneratePersonalizedApplicationOutput> {
+  let cvText = input.cv;
+
+  if (!cvText && input.cvFile && input.cvMimeType) {
+    try {
+      const buffer = Buffer.from(input.cvFile, 'base64');
+      cvText = await parseResume(buffer, input.cvMimeType);
+    } catch (error) {
+      console.error("Error parsing CV file:", error);
+      throw new Error("Failed to extract text from the attached CV. Please upload a plain text file or try again.");
+    }
+  }
+
+  if (!cvText) {
+      throw new Error("CV content is required. Please provide cv text or a valid file.");
+  }
+
+  // Call the flow with the extracted text
+  return generatePersonalizedApplicationFlow({
+      recipientEmail: input.recipientEmail,
+      cv: cvText,
+      jobDescription: input.jobDescription,
+      personalNotes: input.personalNotes
+  });
 }
 
 const prompt = ai.definePrompt({

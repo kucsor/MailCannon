@@ -129,15 +129,16 @@ const MailCannonPage: FC = () => {
     }
   };
 
-  const readFileAsText = (file: File): Promise<string> => {
+  const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
-        reader.onload = (e) => {
-            const text = e.target?.result as string;
-            resolve(text);
+        reader.onload = () => {
+            const result = reader.result as string;
+            // remove 'data:*/*;base64,' prefix
+            resolve(result.split(',')[1]);
         };
-        reader.onerror = (e) => reject(e);
-        reader.readAsText(file);
+        reader.onerror = error => reject(error);
+        reader.readAsDataURL(file);
     });
   }
 
@@ -166,24 +167,15 @@ const MailCannonPage: FC = () => {
     const { jobDescription, personalNotes } = form.getValues();
 
     setIsGenerating(true);
-    let cvText: string;
-    try {
-      cvText = await readFileAsText(attachment);
-    } catch (error) {
-      console.error(error);
-      toast({
-        variant: "destructive",
-        title: "Error reading file",
-        description: "Could not read the file content. Please try a text-based file (.txt, .md) or a different PDF/DOCX.",
-      });
-      setIsGenerating(false);
-      return;
-    }
 
     try {
+      const cvFileBase64 = await fileToBase64(attachment);
+      const cvMimeType = attachment.type;
+
       const result = await generatePersonalizedApplication({
         recipientEmail: firstRecipient,
-        cv: cvText,
+        cvFile: cvFileBase64,
+        cvMimeType: cvMimeType,
         jobDescription,
         personalNotes,
       });
@@ -198,25 +190,12 @@ const MailCannonPage: FC = () => {
       toast({
         variant: "destructive",
         title: "AI Error",
-        description: "Failed to generate the application. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to generate the application. Please try again.",
       });
     } finally {
       setIsGenerating(false);
     }
   };
-  
-  const fileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = () => {
-            const result = reader.result as string;
-            // remove 'data:*/*;base64,' prefix
-            resolve(result.split(',')[1]);
-        };
-        reader.onerror = error => reject(error);
-    });
-  }
 
   const onSubmit = async (data: FormData) => {
     if (!attachment) {
