@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AtSign, FileText, Loader2, Mail, Paperclip, Send, Sparkles, Trash2, Users } from "lucide-react";
+import { FileText, Loader2, Mail, Paperclip, Send, Sparkles, Trash2, Users } from "lucide-react";
 import { useRef, useState, type FC } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -20,7 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 
 const formSchema = z.object({
-  fromEmail: z.string().email({ message: "Please enter a valid email address." }),
   recipients: z.string().min(1, { message: "Please enter at least one recipient email." }),
   subject: z.string().min(1, { message: "Subject cannot be empty." }),
   message: z.string().min(1, { message: "Message body cannot be empty." }),
@@ -42,7 +41,6 @@ const MailCannonPage: FC = () => {
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      fromEmail: "",
       recipients: "",
       subject: "",
       message: "",
@@ -195,7 +193,6 @@ const MailCannonPage: FC = () => {
         }
 
         const result = await sendEmail({
-            from: data.fromEmail,
             to: recipients,
             subject: data.subject,
             html: data.message.replace(/\n/g, '<br>'),
@@ -254,22 +251,12 @@ const MailCannonPage: FC = () => {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                        control={form.control}
-                        name="fromEmail"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Your Email</FormLabel>
-                                <div className="relative">
-                                    <AtSign className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                    <FormControl>
-                                        <Input placeholder="your.name@email.com" {...field} className="pl-10" />
-                                    </FormControl>
-                                </div>
-                                <FormMessage />
-                            </FormItem>
-                        )}
-                    />
+                    <div className="space-y-2 rounded-lg bg-secondary/50 p-4">
+                        <FormLabel>Sender</FormLabel>
+                        <p className="text-sm text-muted-foreground">
+                            Emails will be sent from the Google Account configured in your <code>.env.local</code> file.
+                        </p>
+                    </div>
                      <FormField
                         control={form.control}
                         name="recipients"

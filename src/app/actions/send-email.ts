@@ -3,8 +3,6 @@ import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
 const sendEmailSchema = z.object({
-  // from is not needed for gmail, but we keep it for schema consistency
-  from: z.string().email(),
   to: z.array(z.string().email()),
   subject: z.string(),
   html: z.string(),
@@ -44,7 +42,7 @@ export async function sendEmail(data: SendEmailInput): Promise<{success: boolean
       }
     });
 
-    const senderName = process.env.GMAIL_SENDER_NAME || 'MailCannon';
+    const senderName = process.env.GMAIL_SENDER_NAME || process.env.GMAIL_EMAIL;
     const fromAddress = `"${senderName}" <${process.env.GMAIL_EMAIL}>`;
 
     const mailOptions = {
