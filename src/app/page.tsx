@@ -1,11 +1,12 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Loader2, Mail, Paperclip, Send, Trash2, Users } from "lucide-react";
+import { Languages, Loader2, Mail, Paperclip, Send, Trash2, Users } from "lucide-react";
 import { useRef, useState, type FC } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
+import { translateMessage } from "@/ai/flows/translate-message";
 import { sendEmail } from "@/app/actions/send-email";
 import { escapeHtml } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -28,6 +29,7 @@ type FormData = z.infer<typeof formSchema>;
 const MailCannonPage: FC = () => {
   const { toast } = useToast();
   const [isSending, setIsSending] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -88,6 +90,37 @@ const MailCannonPage: FC = () => {
             description: "Please upload a .txt, .md, .pdf, .doc, or .docx file.",
         });
       }
+    }
+  };
+
+  const handleTranslate = async () => {
+    const currentMessage = form.getValues("message");
+    if (!currentMessage) {
+        toast({
+            variant: "destructive",
+            title: "Empty Message",
+            description: "Please write a message to translate.",
+        });
+        return;
+    }
+
+    setIsTranslating(true);
+    try {
+        const result = await translateMessage({ message: currentMessage });
+        form.setValue("message", result.translatedMessage, { shouldValidate: true });
+        toast({
+            title: "Message Translated!",
+            description: "Your message has been translated to German.",
+        });
+    } catch (error) {
+        console.error("Translation error:", error);
+        toast({
+            variant: "destructive",
+            title: "Translation Error",
+            description: "Failed to translate the message. Please try again.",
+        });
+    } finally {
+        setIsTranslating(false);
     }
   };
 
@@ -265,12 +298,22 @@ const MailCannonPage: FC = () => {
                     name="message"
                     render={({ field }) => (
                         <FormItem>
-                            <div className="flex items-center justify-between flex-wrap gap-2">
-                                <FormLabel>Message Body</FormLabel>
-                            </div>
+                            <FormLabel>Message Body</FormLabel>
                             <FormControl>
                                 <Textarea placeholder="Write your cover letter or message here..." {...field} rows={12} />
                             </FormControl>
+                            <div className="flex justify-end mt-2">
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={handleTranslate}
+                                    disabled={isTranslating || !field.value}
+                                >
+                                    {isTranslating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Languages className="mr-2 h-4 w-4" />}
+                                    Translate to German
+                                </Button>
+                            </div>
                             <FormMessage />
                         </FormItem>
                     )}
