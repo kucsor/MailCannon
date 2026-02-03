@@ -179,18 +179,27 @@ const MailCannonPage: FC = () => {
         jobDescription,
         personalNotes,
       });
-      form.setValue("subject", result.subject, { shouldValidate: true });
-      form.setValue("message", result.message, { shouldValidate: true });
-      toast({
-        title: "Application Generated!",
-        description: `A personalized application for ${firstRecipient} has been created.`,
-      });
+
+      if (result.success) {
+        form.setValue("subject", result.data.subject, { shouldValidate: true });
+        form.setValue("message", result.data.message, { shouldValidate: true });
+        toast({
+          title: "Application Generated!",
+          description: `A personalized application for ${firstRecipient} has been created.`,
+        });
+      } else {
+        toast({
+          variant: "destructive",
+          title: "AI Generation Failed",
+          description: result.error,
+        });
+      }
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
-        title: "AI Error",
-        description: error instanceof Error ? error.message : "Failed to generate the application. Please try again.",
+        title: "Client Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred.",
       });
     } finally {
       setIsGenerating(false);

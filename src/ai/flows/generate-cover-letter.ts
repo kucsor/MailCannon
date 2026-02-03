@@ -41,11 +41,12 @@ const ActionInputSchema = z.object({
 
 export type GeneratePersonalizedApplicationActionInput = z.infer<typeof ActionInputSchema>;
 
-export async function generatePersonalizedApplication(input: GeneratePersonalizedApplicationActionInput): Promise<GeneratePersonalizedApplicationOutput> {
+export type ActionResponse<T> =
+  | { success: true; data: T }
+  | { success: false; error: string };
+
+export async function generatePersonalizedApplication(input: GeneratePersonalizedApplicationActionInput): Promise<ActionResponse<GeneratePersonalizedApplicationOutput>> {
   console.log('generatePersonalizedApplication called');
-  console.log('Input keys:', Object.keys(input));
-  if (input.cvFile) console.log('cvFile length:', input.cvFile.length);
-  if (input.cvMimeType) console.log('cvMimeType:', input.cvMimeType);
 
   try {
     let cvText = input.cv;
@@ -61,12 +62,19 @@ export async function generatePersonalizedApplication(input: GeneratePersonalize
         console.log('CV parsed successfully. Text length:', cvText.length);
       } catch (error: any) {
         console.error("Error parsing CV file:", error);
-        throw new Error(`Failed to extract text from the attached CV: ${error.message}`);
+        return { success: false, error: `Failed to extract text from the attached CV: ${error.message}` };
       }
     }
 
     if (!cvText) {
-        throw new Error("CV content is required. Please provide cv text or a valid file.");
+        return { success: false, error: "CV content is required. Please provide cv text or a valid file." };
+    }
+
+    // Truncate CV text if it's too long to prevent token limit issues
+    const MAX_CV_LENGTH = 100000; // ~100k characters (approx 25k tokens) should be plenty
+    if (cvText.length > MAX_CV_LENGTH) {
+        console.warn(`CV text is too long (${cvText.length} chars). Truncating to ${MAX_CV_LENGTH}.`);
+        cvText = cvText.substring(0, MAX_CV_LENGTH) + "\n...[Truncated]";
     }
 
     console.log('Calling AI flow...');
@@ -78,13 +86,27 @@ export async function generatePersonalizedApplication(input: GeneratePersonalize
         personalNotes: input.personalNotes
     });
     console.log('AI flow completed successfully.');
-    return result;
+
+    return { success: true, data: result };
 
   } catch (error: any) {
     console.error('CRITICAL ERROR in generatePersonalizedApplication:', error);
     if (error.stack) console.error(error.stack);
-    // Rethrow to let the UI handle it (but it might be masked by Next.js in production)
-    throw error;
+
+    // Return a structured error that the client can display
+    // We try to extract a meaningful message
+    let errorMessage = "An unexpected error occurred during AI generation.";
+
+    if (error.message) {
+        if (error.message.includes("400")) {
+             // Handle common API key or bad request issues nicely
+             errorMessage = "AI Service Error: The request was rejected. Please check your API key configuration.";
+        } else {
+             errorMessage = error.message;
+        }
+    }
+
+    return { success: false, error: errorMessage };
   }
 }
 

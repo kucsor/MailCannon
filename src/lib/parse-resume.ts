@@ -5,6 +5,11 @@ import mammoth from 'mammoth';
 export async function parseResume(buffer: Buffer, mimeType: string): Promise<string> {
   console.log(`[parseResume] Starting parse for mimeType: ${mimeType}, size: ${buffer.length}`);
 
+  if (!buffer || buffer.length === 0) {
+    console.warn('[parseResume] Received empty buffer.');
+    return '';
+  }
+
   if (mimeType === 'application/pdf') {
     let parser;
     try {
