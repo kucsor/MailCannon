@@ -10,6 +10,8 @@ import { generatePersonalizedApplication } from "@/ai/flows/generate-cover-lette
 import { improveDraftMessage } from "@/ai/flows/improve-draft-message";
 import { sendEmail } from "@/app/actions/send-email";
 import { escapeHtml } from "@/lib/utils";
+import { useStats } from "@/hooks/use-stats";
+import { StatsCounter } from "@/components/stats-counter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -31,6 +33,7 @@ type FormData = z.infer<typeof formSchema>;
 
 const MailCannonPage: FC = () => {
   const { toast } = useToast();
+  const { stats, incrementStats, resetStats } = useStats();
   const [isSending, setIsSending] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -255,6 +258,7 @@ const MailCannonPage: FC = () => {
         });
 
         if (result.success) {
+            incrementStats(recipients.length, recipients.length);
             toast({
                 title: "Emails Sent!",
                 description: result.message,
@@ -291,6 +295,10 @@ const MailCannonPage: FC = () => {
         <p className="max-w-xl text-muted-foreground">
           Streamline your job search. Write one application, attach your CV, and send it to your entire list of potential employers in one click.
         </p>
+      </div>
+
+      <div className="max-w-lg mx-auto mb-8">
+        <StatsCounter stats={stats} onReset={resetStats} />
       </div>
 
       <Form {...form}>
