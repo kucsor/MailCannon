@@ -34,7 +34,6 @@ const MailCannonPage: FC = () => {
   const [isImproving, setIsImproving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
-  const [cvContent, setCvContent] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FormData>({
@@ -52,26 +51,11 @@ const MailCannonPage: FC = () => {
     const file = event.target.files?.[0];
     if (file) {
       setAttachment(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const text = e.target?.result as string;
-        setCvContent(text);
-      };
-      reader.onerror = () => {
-        toast({
-          variant: "destructive",
-          title: "Error reading file",
-          description: "Could not read the file content. Please try a text-based file (.txt, .md) or a different PDF/DOCX.",
-        });
-        setCvContent(null);
-      }
-      reader.readAsText(file);
     }
   };
 
   const removeAttachment = () => {
     setAttachment(null);
-    setCvContent(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -107,6 +91,18 @@ const MailCannonPage: FC = () => {
     }
   };
 
+  const readFileAsText = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            const text = e.target?.result as string;
+            resolve(text);
+        };
+        reader.onerror = (e) => reject(e);
+        reader.readAsText(file);
+    });
+  }
+
   const handleGenerateApplication = async () => {
     const recipients = form.getValues("recipients");
     const firstRecipient = recipients.split(/[\n,;]+/)[0]?.trim();
@@ -120,7 +116,7 @@ const MailCannonPage: FC = () => {
         return;
     }
     
-    if (!cvContent) {
+    if (!attachment) {
       toast({
         variant: "destructive",
         title: "CV not attached",
@@ -132,10 +128,24 @@ const MailCannonPage: FC = () => {
     const { jobDescription, personalNotes } = form.getValues();
 
     setIsGenerating(true);
+    let cvText: string;
+    try {
+      cvText = await readFileAsText(attachment);
+    } catch (error) {
+      console.error(error);
+      toast({
+        variant: "destructive",
+        title: "Error reading file",
+        description: "Could not read the file content. Please try a text-based file (.txt, .md) or a different PDF/DOCX.",
+      });
+      setIsGenerating(false);
+      return;
+    }
+
     try {
       const result = await generatePersonalizedApplication({
         recipientEmail: firstRecipient,
-        cv: cvContent,
+        cv: cvText,
         jobDescription,
         personalNotes,
       });
@@ -312,7 +322,7 @@ const MailCannonPage: FC = () => {
                             <Sparkles className="h-5 w-5 text-accent"/>
                             <h3 className="text-lg font-semibold">AI Assistant</h3>
                         </div>
-                         <Button type="button" onClick={handleGenerateApplication} disabled={isGenerating || !cvContent} className="bg-accent hover:bg-accent/90">
+                         <Button type="button" onClick={handleGenerateApplication} disabled={isGenerating || !attachment} className="bg-accent hover:bg-accent/90">
                             {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
                             Generate Application
                         </Button>
