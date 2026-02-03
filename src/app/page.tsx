@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { generateCoverLetter } from "@/ai/flows/generate-cover-letter";
 import { improveDraftMessage } from "@/ai/flows/improve-draft-message";
+import { sendEmail } from "@/app/actions/send-email";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -154,6 +155,19 @@ const MailCannonPage: FC = () => {
       setIsGenerating(false);
     }
   };
+  
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = () => {
+            const result = reader.result as string;
+            // remove 'data:*/*;base64,' prefix
+            resolve(result.split(',')[1]);
+        };
+        reader.onerror = error => reject(error);
+    });
+  }
 
   const onSubmit = async (data: FormData) => {
     if (!attachment) {
@@ -165,16 +179,57 @@ const MailCannonPage: FC = () => {
       return;
     }
     setIsSending(true);
-    console.log("Sending email with data:", { ...data, attachment: attachment.name });
 
-    // Simulate bulk email sending
-    await new Promise((resolve) => setTimeout(resolve, 2000));
+    try {
+        const attachmentContent = await fileToBase64(attachment);
+        
+        const recipients = data.recipients.split(/[\n,;]+/).map(e => e.trim()).filter(e => e);
+        if (recipients.length === 0) {
+             toast({
+                variant: "destructive",
+                title: "No recipients",
+                description: "Please enter at least one recipient email.",
+            });
+            setIsSending(false);
+            return;
+        }
 
-    setIsSending(false);
-    toast({
-      title: "Emails Sent!",
-      description: `Your application has been sent to ${data.recipients.split(/[\n,;]+/).filter(e => e.trim()).length} recipients.`,
-    });
+        const result = await sendEmail({
+            from: data.fromEmail,
+            to: recipients,
+            subject: data.subject,
+            html: data.message.replace(/\n/g, '<br>'),
+            attachment: {
+                content: attachmentContent,
+                filename: attachment.name,
+                type: attachment.type,
+                disposition: 'attachment'
+            }
+        });
+
+        if (result.success) {
+            toast({
+                title: "Emails Sent!",
+                description: result.message,
+            });
+        } else {
+             toast({
+                variant: "destructive",
+                title: "Failed to send emails",
+                description: (typeof result.error === 'string' ? result.error : 'An unexpected error occurred. Check the server logs for details.'),
+            });
+        }
+
+    } catch (error) {
+        console.error("Sending email failed:", error);
+        toast({
+            variant: "destructive",
+            title: "Error",
+            description: "An error occurred while sending the email. You may need to configure your SendGrid API key.",
+        });
+    } finally {
+        setIsSending(false);
+    }
   };
 
   return (
@@ -212,6 +267,7 @@ const MailCannonPage: FC = () => {
                                         <Input placeholder="your.name@email.com" {...field} className="pl-10" />
                                     </FormControl>
                                 </div>
+                                <FormDescription>This must be a verified SendGrid sender.</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
