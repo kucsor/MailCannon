@@ -1,9 +1,10 @@
-import dotenv from 'dotenv';
+import { loadEnvConfig } from '@next/env';
 import path from 'path';
 import { ai } from '../src/ai/genkit';
 
-// Load .env from root
-dotenv.config({ path: path.resolve(process.cwd(), '.env') });
+// Load environment variables using Next.js logic (supports .env.local, .env, etc.)
+const projectDir = process.cwd();
+loadEnvConfig(projectDir);
 
 async function main() {
   console.log("----------------------------------------");
@@ -21,7 +22,7 @@ async function main() {
   console.log(`- GOOGLE_GENAI_API_KEY: ${googleGenAiKey ? '✅ Set' : '❌ Missing'}`);
 
   if (!geminiKey && !googleKey && !googleGenAiKey) {
-    console.error("\n❌ No API key found. Please set GEMINI_API_KEY in your environment or .env file.");
+    console.error("\n❌ No API key found. Please set GEMINI_API_KEY in your environment or .env.local file.");
     process.exit(1);
   }
 
@@ -34,7 +35,7 @@ async function main() {
     console.log(`"${result.text}"`);
   } catch (error: any) {
     console.error("\n❌ Connection Failed:");
-    if (error.message.includes("API key not valid")) {
+    if (error.message && error.message.includes("API key not valid")) {
        console.error("The API key provided is invalid. Please check your Vercel settings or .env file.");
     } else {
        console.error(error.message || error);
