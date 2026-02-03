@@ -34,6 +34,7 @@ const MailCannonPage: FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [isImproving, setIsImproving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const [attachment, setAttachment] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -59,6 +60,42 @@ const MailCannonPage: FC = () => {
     setAttachment(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    if (e.currentTarget.contains(e.relatedTarget as Node)) {
+        return;
+    }
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      const validExtensions = ['.txt', '.md', '.pdf', '.doc', '.docx'];
+      const fileExtension = '.' + file.name.split('.').pop()?.toLowerCase();
+
+      if (validExtensions.includes(fileExtension)) {
+        setAttachment(file);
+        if (fileInputRef.current) {
+            fileInputRef.current.value = "";
+        }
+      } else {
+         toast({
+            variant: "destructive",
+            title: "Invalid file type",
+            description: "Please upload a .txt, .md, .pdf, .doc, or .docx file.",
+        });
+      }
     }
   };
 
@@ -292,7 +329,12 @@ const MailCannonPage: FC = () => {
                
                 <Separator />
                 
-                <div className="space-y-2">
+                <div
+                    className={`space-y-2 p-4 border-2 rounded-lg transition-colors ${isDragging ? 'border-primary bg-primary/5 border-dashed' : 'border-dashed border-muted/50 hover:border-muted'}`}
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                >
                     <FormLabel>CV / Resume Attachment</FormLabel>
                     <div className="flex items-center gap-4 flex-wrap">
                         <Button type="button" variant="outline" onClick={() => fileInputRef.current?.click()}>
@@ -311,6 +353,7 @@ const MailCannonPage: FC = () => {
                                 </Button>
                             </div>
                         )}
+                        {!attachment && <span className="text-sm text-muted-foreground hidden sm:inline-block">or drag and drop here</span>}
                     </div>
                      { !attachment && <FormDescription>Upload your CV (e.g., .pdf, .docx, .txt). This is required for AI generation.</FormDescription> }
                 </div>
