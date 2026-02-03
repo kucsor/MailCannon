@@ -1,6 +1,6 @@
 import type {NextConfig} from 'next';
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   /* config options here */
   serverActions: {
     bodySizeLimit: '10mb',
@@ -33,6 +33,6 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-};
+} satisfies NextConfig;
 
 export default nextConfig;
