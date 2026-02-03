@@ -6,7 +6,7 @@ import { useRef, useState, type FC } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
-import { generateCoverLetter } from "@/ai/flows/generate-cover-letter";
+import { generatePersonalizedApplication } from "@/ai/flows/generate-cover-letter";
 import { improveDraftMessage } from "@/ai/flows/improve-draft-message";
 import { sendEmail } from "@/app/actions/send-email";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +14,6 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
@@ -24,7 +23,7 @@ const formSchema = z.object({
   subject: z.string().min(1, { message: "Subject cannot be empty." }),
   message: z.string().min(1, { message: "Message body cannot be empty." }),
   jobDescription: z.string().optional(),
-  tone: z.string().default("Formal"),
+  personalNotes: z.string().optional(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -45,7 +44,7 @@ const MailCannonPage: FC = () => {
       subject: "",
       message: "",
       jobDescription: "",
-      tone: "Formal",
+      personalNotes: "",
     },
   });
 
@@ -108,46 +107,50 @@ const MailCannonPage: FC = () => {
     }
   };
 
-  const handleGenerateCoverLetter = async () => {
-    const jobDescription = form.getValues("jobDescription");
-    const tone = form.getValues("tone");
+  const handleGenerateApplication = async () => {
+    const recipients = form.getValues("recipients");
+    const firstRecipient = recipients.split(/[\n,;]+/)[0]?.trim();
+
+    if (!firstRecipient) {
+        toast({
+            variant: "destructive",
+            title: "No Recipient",
+            description: "Please enter at least one recipient email to generate a personalized application.",
+        });
+        return;
+    }
+    
     if (!cvContent) {
       toast({
         variant: "destructive",
         title: "CV not attached",
-        description: "Please attach your CV to generate a cover letter.",
+        description: "Please attach your CV to generate an application.",
       });
       return;
     }
-    if (!jobDescription) {
-      form.setError("jobDescription", { message: "Please provide the job description."})
-      toast({
-        variant: "destructive",
-        title: "Job description is empty",
-        description: "Please provide the job description.",
-      });
-      return;
-    }
+    
+    const { jobDescription, personalNotes } = form.getValues();
 
     setIsGenerating(true);
     try {
-      const result = await generateCoverLetter({
+      const result = await generatePersonalizedApplication({
+        recipientEmail: firstRecipient,
         cv: cvContent,
         jobDescription,
-        tone,
+        personalNotes,
       });
-      form.setValue("message", result.coverLetter, { shouldValidate: true });
-      form.setValue("subject", `Application for the position described`, { shouldValidate: true });
+      form.setValue("subject", result.subject, { shouldValidate: true });
+      form.setValue("message", result.message, { shouldValidate: true });
       toast({
-        title: "Cover Letter Generated!",
-        description: "A tailored cover letter has been created for you.",
+        title: "Application Generated!",
+        description: `A personalized application for ${firstRecipient} has been created.`,
       });
     } catch (error) {
       console.error(error);
       toast({
         variant: "destructive",
         title: "AI Error",
-        description: "Failed to generate cover letter. Please try again.",
+        description: "Failed to generate the application. Please try again.",
       });
     } finally {
       setIsGenerating(false);
@@ -266,10 +269,10 @@ const MailCannonPage: FC = () => {
                                  <div className="relative">
                                     <Users className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                                     <FormControl>
-                                        <Textarea placeholder="email1@corp.com, email2@corp.com..." {...field} className="pl-10"/>
+                                        <Textarea placeholder="email1@company.com, email2@corp.com..." {...field} className="pl-10"/>
                                     </FormControl>
                                 </div>
-                                <FormDescription>Enter emails separated by commas, semicolons, or new lines.</FormDescription>
+                                <FormDescription>Enter emails separated by commas, semicolons, or new lines. The first email will be used for AI personalization.</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -298,59 +301,52 @@ const MailCannonPage: FC = () => {
                             </div>
                         )}
                     </div>
-                     { !attachment && <FormDescription>Upload your CV (e.g., .pdf, .docx, .txt)</FormDescription> }
+                     { !attachment && <FormDescription>Upload your CV (e.g., .pdf, .docx, .txt). This is required for AI generation.</FormDescription> }
                 </div>
 
                 <Separator />
                 
                 <div className="space-y-4 p-4 bg-secondary/50 rounded-lg border">
-                    <div className="flex items-center gap-2">
-                        <Sparkles className="h-5 w-5 text-accent"/>
-                        <h3 className="text-lg font-semibold">AI Assistant</h3>
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="h-5 w-5 text-accent"/>
+                            <h3 className="text-lg font-semibold">AI Assistant</h3>
+                        </div>
+                         <Button type="button" onClick={handleGenerateApplication} disabled={isGenerating || !cvContent} className="bg-accent hover:bg-accent/90">
+                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                            Generate Application
+                        </Button>
                     </div>
                     <p className="text-sm text-muted-foreground">
-                        Use AI to generate a tailored cover letter from a job description, or improve your existing draft.
+                        Use AI to generate a personalized email by analyzing the first recipient's email, your CV, and the details below.
                     </p>
                     <FormField
                         control={form.control}
                         name="jobDescription"
                         render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Job Description for Cover Letter</FormLabel>
+                                <FormLabel>Job Description (Optional)</FormLabel>
                                 <FormControl>
-                                    <Textarea placeholder="Paste the job description here to generate a cover letter..." {...field} rows={5} />
+                                    <Textarea placeholder="Paste the job description here for a more tailored application..." {...field} rows={4} />
                                 </FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}
                     />
-                    <div className="flex flex-wrap items-end gap-4">
-                        <FormField
-                            control={form.control}
-                            name="tone"
-                            render={({ field }) => (
-                                <FormItem className="flex-1 min-w-[150px]">
-                                    <FormLabel>Tone of Voice</FormLabel>
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Select a tone" />
-                                        </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="Formal">Formal</SelectItem>
-                                            <SelectItem value="Friendly">Friendly</SelectItem>
-                                            <SelectItem value="Enthusiastic">Enthusiastic</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                </FormItem>
-                            )}
-                        />
-                         <Button type="button" onClick={handleGenerateCoverLetter} disabled={isGenerating || !cvContent} className="bg-accent hover:bg-accent/90">
-                            {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
-                            Generate Letter
-                        </Button>
-                    </div>
+                    <FormField
+                        control={form.control}
+                        name="personalNotes"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Personal Notes for AI (Optional)</FormLabel>
+                                <FormControl>
+                                    <Textarea placeholder="e.g., I have a daughter and would prefer night shifts. I am aware school holidays can be a challenge and I am proactive about planning." {...field} rows={3} />
+                                </FormControl>
+                                <FormDescription>Add any personal details for the AI to include. Use with caution.</FormDescription>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                 </div>
 
                 <FormField

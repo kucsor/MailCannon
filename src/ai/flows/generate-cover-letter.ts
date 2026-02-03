@@ -1,76 +1,78 @@
 'use server';
 
 /**
- * @fileOverview AI-powered cover letter generation flow.
+ * @fileOverview AI flow to generate a personalized job application based on recipient email, CV, and other details.
  *
- * This file defines a Genkit flow that generates a cover letter based on a user-provided CV and job description.
- *
- * - `generateCoverLetter`: Asynchronous function to trigger the cover letter generation flow.
- * - `GenerateCoverLetterInput`: Interface defining the input schema for the flow.
- * - `GenerateCoverLetterOutput`: Interface defining the output schema for the flow.
+ * - `generatePersonalizedApplication`: Triggers the application generation flow.
+ * - `GeneratePersonalizedApplicationInput`: Input schema for the flow.
+ * - `GeneratePersonalizedApplicationOutput`: Output schema for the flow.
  */
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
 
-const GenerateCoverLetterInputSchema = z.object({
-  cv: z
-    .string()
-    .describe("The applicant's CV or resume text content."),
-  jobDescription: z.string().describe('The job description for the position.'),
-  tone: z
-    .string()
-    .optional()
-    .describe('The tone of cover letter, e.g., formal, informal, enthusiastic. Defaults to neutral.'),
-  additionalInstructions: z
-    .string()
-    .optional()
-    .describe('Any additional instructions for generating the cover letter.'),
+const GeneratePersonalizedApplicationInputSchema = z.object({
+  recipientEmail: z.string().email().describe("The email address of the recipient."),
+  cv: z.string().describe("The applicant's CV text content."),
+  jobDescription: z.string().optional().describe('The job description for the position, if available.'),
+  personalNotes: z.string().optional().describe('Any personal notes or preferences to include, like desired work hours or family considerations.'),
 });
 
-export type GenerateCoverLetterInput = z.infer<typeof GenerateCoverLetterInputSchema>;
+export type GeneratePersonalizedApplicationInput = z.infer<typeof GeneratePersonalizedApplicationInputSchema>;
 
-const GenerateCoverLetterOutputSchema = z.object({
-  coverLetter: z.string().describe('The generated cover letter.'),
+const GeneratePersonalizedApplicationOutputSchema = z.object({
+  subject: z.string().describe("The generated subject line for the email."),
+  message: z.string().describe("The generated body of the email."),
 });
 
-export type GenerateCoverLetterOutput = z.infer<typeof GenerateCoverLetterOutputSchema>;
+export type GeneratePersonalizedApplicationOutput = z.infer<typeof GeneratePersonalizedApplicationOutputSchema>;
 
-export async function generateCoverLetter(input: GenerateCoverLetterInput): Promise<GenerateCoverLetterOutput> {
-  return generateCoverLetterFlow(input);
+export async function generatePersonalizedApplication(input: GeneratePersonalizedApplicationInput): Promise<GeneratePersonalizedApplicationOutput> {
+  return generatePersonalizedApplicationFlow(input);
 }
 
 const prompt = ai.definePrompt({
-  name: 'generateCoverLetterPrompt',
-  input: {schema: GenerateCoverLetterInputSchema},
-  output: {schema: GenerateCoverLetterOutputSchema},
-  prompt: `You are an AI assistant designed to generate cover letters based on a CV and a job description.
+  name: 'generatePersonalizedApplicationPrompt',
+  input: {schema: GeneratePersonalizedApplicationInputSchema},
+  output: {schema: GeneratePersonalizedApplicationOutputSchema},
+  prompt: `You are a professional career assistant. Your task is to write a job application email, including a subject and a message.
 
-CV:
-{{cv}}
+Analyze the recipient's email address: {{recipientEmail}} to infer the company they work for using your knowledge.
 
-Job Description:
-{{jobDescription}}
+**Scenario 1: If you can identify the company from the email domain.**
+- Write a cover letter tailored to that company.
+- Use the provided CV to highlight relevant skills and experience.
+- If a job description is provided, focus on how the applicant matches the requirements.
+- Weave in the personal notes provided by the user in a professional and subtle way. For example, frame preferences like working hours as a point for discussion rather than a rigid demand.
 
-Additional Instructions:
-{{additionalInstructions}}
+**Scenario 2: If you CANNOT identify the company from the email domain.**
+- Write a more general, adaptable cover letter.
+- State that the applicant is very interested in opportunities and is eager for a career change.
+- Mention that the CV is attached for their review.
+- Incorporate the user's personal notes professionally. For instance, phrase preferences (like night shifts) as a flexible desire and mention awareness of long-term planning needs (like school holidays) to show responsibility.
 
-Instructions: Use the CV and job description to generate a cover letter that is tailored to the position. The cover letter should be professional and highlight the applicant's skills and experience that are relevant to the job.  The tone should be {{tone}}.
+**User-provided Information:**
+- CV:
+{{{cv}}}
 
-Cover Letter:`, // Fixed the typo here.
+- Job Description (if any):
+{{{jobDescription}}}
+
+- Personal Notes to include:
+{{{personalNotes}}}
+
+Generate an appropriate subject and the full message for the email. The tone should be professional and authentic.
+`,
 });
 
-const generateCoverLetterFlow = ai.defineFlow(
+const generatePersonalizedApplicationFlow = ai.defineFlow(
   {
-    name: 'generateCoverLetterFlow',
-    inputSchema: GenerateCoverLetterInputSchema,
-    outputSchema: GenerateCoverLetterOutputSchema,
+    name: 'generatePersonalizedApplicationFlow',
+    inputSchema: GeneratePersonalizedApplicationInputSchema,
+    outputSchema: GeneratePersonalizedApplicationOutputSchema,
   },
-  async input => {
-    const {output} = await prompt({
-      ...input,
-      tone: input.tone ?? 'neutral',
-    });
+  async (input) => {
+    const {output} = await prompt(input);
     return output!;
   }
 );
