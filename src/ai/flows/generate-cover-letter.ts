@@ -42,29 +42,50 @@ const ActionInputSchema = z.object({
 export type GeneratePersonalizedApplicationActionInput = z.infer<typeof ActionInputSchema>;
 
 export async function generatePersonalizedApplication(input: GeneratePersonalizedApplicationActionInput): Promise<GeneratePersonalizedApplicationOutput> {
-  let cvText = input.cv;
+  console.log('generatePersonalizedApplication called');
+  console.log('Input keys:', Object.keys(input));
+  if (input.cvFile) console.log('cvFile length:', input.cvFile.length);
+  if (input.cvMimeType) console.log('cvMimeType:', input.cvMimeType);
 
-  if (!cvText && input.cvFile && input.cvMimeType) {
-    try {
-      const buffer = Buffer.from(input.cvFile, 'base64');
-      cvText = await parseResume(buffer, input.cvMimeType);
-    } catch (error) {
-      console.error("Error parsing CV file:", error);
-      throw new Error("Failed to extract text from the attached CV. Please upload a plain text file or try again.");
+  try {
+    let cvText = input.cv;
+
+    if (!cvText && input.cvFile && input.cvMimeType) {
+      try {
+        console.log('Converting base64 to buffer...');
+        const buffer = Buffer.from(input.cvFile, 'base64');
+        console.log('Buffer created, size:', buffer.length);
+
+        console.log('Calling parseResume...');
+        cvText = await parseResume(buffer, input.cvMimeType);
+        console.log('CV parsed successfully. Text length:', cvText.length);
+      } catch (error: any) {
+        console.error("Error parsing CV file:", error);
+        throw new Error(`Failed to extract text from the attached CV: ${error.message}`);
+      }
     }
-  }
 
-  if (!cvText) {
-      throw new Error("CV content is required. Please provide cv text or a valid file.");
-  }
+    if (!cvText) {
+        throw new Error("CV content is required. Please provide cv text or a valid file.");
+    }
 
-  // Call the flow with the extracted text
-  return generatePersonalizedApplicationFlow({
-      recipientEmail: input.recipientEmail,
-      cv: cvText,
-      jobDescription: input.jobDescription,
-      personalNotes: input.personalNotes
-  });
+    console.log('Calling AI flow...');
+    // Call the flow with the extracted text
+    const result = await generatePersonalizedApplicationFlow({
+        recipientEmail: input.recipientEmail,
+        cv: cvText,
+        jobDescription: input.jobDescription,
+        personalNotes: input.personalNotes
+    });
+    console.log('AI flow completed successfully.');
+    return result;
+
+  } catch (error: any) {
+    console.error('CRITICAL ERROR in generatePersonalizedApplication:', error);
+    if (error.stack) console.error(error.stack);
+    // Rethrow to let the UI handle it (but it might be masked by Next.js in production)
+    throw error;
+  }
 }
 
 const prompt = ai.definePrompt({
