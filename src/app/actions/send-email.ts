@@ -2,11 +2,6 @@
 import nodemailer from 'nodemailer';
 import { z } from 'zod';
 
-// Instructions for .env.local:
-// GMAIL_EMAIL="your_email@gmail.com"
-// GMAIL_APP_PASSWORD="your_16_character_app_password"
-// GMAIL_SENDER_NAME="Your Name" // Optional
-
 const sendEmailSchema = z.object({
   // from is not needed for gmail, but we keep it for schema consistency
   from: z.string().email(),
@@ -24,10 +19,13 @@ type SendEmailInput = z.infer<typeof sendEmailSchema>;
 
 export async function sendEmail(data: SendEmailInput): Promise<{success: boolean; message?: string, error?: any}> {
     if (!process.env.GMAIL_EMAIL || !process.env.GMAIL_APP_PASSWORD) {
-        console.error('GMAIL_EMAIL or GMAIL_APP_PASSWORD is not set. Email not sent.');
+        console.error('GMAIL_EMAIL or GMAIL_APP_PASSWORD is not set in .env.local. Email not sent.');
         // For this prototype, we will just log it and simulate success if keys are missing.
-        console.log('Simulating email sending for:', data.to);
-        return { success: true, message: `Emailuri simulate cu succes pentru ${data.to.length} destinatari!` };
+        console.log(`SIMULATING email to: ${data.to.join(', ')}`);
+        return { 
+            success: true, 
+            message: `(SIMULARE) Email trimis la ${data.to.length} destinatari. Configurați .env.local pentru a trimite email-uri reale.` 
+        };
     }
 
     const validatedData = sendEmailSchema.safeParse(data);
