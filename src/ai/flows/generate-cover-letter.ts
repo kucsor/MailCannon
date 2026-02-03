@@ -10,7 +10,6 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
-import {parseResume} from '@/lib/parse-resume';
 
 // Schema for the AI Flow (Internal)
 const GeneratePersonalizedApplicationInputSchema = z.object({
@@ -29,12 +28,10 @@ const GeneratePersonalizedApplicationOutputSchema = z.object({
 
 export type GeneratePersonalizedApplicationOutput = z.infer<typeof GeneratePersonalizedApplicationOutputSchema>;
 
-// Schema for the Server Action (Public) - allows file upload or raw text
+// Schema for the Server Action (Public)
 const ActionInputSchema = z.object({
   recipientEmail: z.string().email(),
   cv: z.string().optional(),
-  cvFile: z.string().optional(), // base64 string
-  cvMimeType: z.string().optional(),
   jobDescription: z.string().optional(),
   personalNotes: z.string().optional(),
 });
@@ -51,23 +48,8 @@ export async function generatePersonalizedApplication(input: GeneratePersonalize
   try {
     let cvText = input.cv;
 
-    if (!cvText && input.cvFile && input.cvMimeType) {
-      try {
-        console.log('Converting base64 to buffer...');
-        const buffer = Buffer.from(input.cvFile, 'base64');
-        console.log('Buffer created, size:', buffer.length);
-
-        console.log('Calling parseResume...');
-        cvText = await parseResume(buffer, input.cvMimeType);
-        console.log('CV parsed successfully. Text length:', cvText.length);
-      } catch (error: any) {
-        console.error("Error parsing CV file:", error);
-        return { success: false, error: `Failed to extract text from the attached CV: ${error.message}` };
-      }
-    }
-
     if (!cvText) {
-        return { success: false, error: "CV content is required. Please provide cv text or a valid file." };
+        return { success: false, error: "CV content is required. Please provide cv text." };
     }
 
     // Truncate CV text if it's too long to prevent token limit issues

@@ -1,7 +1,7 @@
 import type {NextConfig} from 'next';
 
 const nextConfig = {
-  /* config options here */
+  serverExternalPackages: ['pdf-parse', 'pdfjs-dist', 'mammoth'],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

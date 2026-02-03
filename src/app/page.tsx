@@ -169,13 +169,24 @@ const MailCannonPage: FC = () => {
     setIsGenerating(true);
 
     try {
-      const cvFileBase64 = await fileToBase64(attachment);
-      const cvMimeType = attachment.type;
+      const formData = new FormData();
+      formData.append("file", attachment);
+
+      const extractRes = await fetch("/api/extract-cv-text", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!extractRes.ok) {
+        const errorData = await extractRes.json();
+        throw new Error(errorData.error || "Failed to extract text from CV");
+      }
+
+      const { text } = await extractRes.json();
 
       const result = await generatePersonalizedApplication({
         recipientEmail: firstRecipient,
-        cvFile: cvFileBase64,
-        cvMimeType: cvMimeType,
+        cv: text,
         jobDescription,
         personalNotes,
       });
