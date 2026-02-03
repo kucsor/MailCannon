@@ -9,6 +9,7 @@ import { z } from "zod";
 import { generatePersonalizedApplication } from "@/ai/flows/generate-cover-letter";
 import { improveDraftMessage } from "@/ai/flows/improve-draft-message";
 import { sendEmail } from "@/app/actions/send-email";
+import { escapeHtml } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -198,7 +199,7 @@ const MailCannonPage: FC = () => {
         const result = await sendEmail({
             to: recipients,
             subject: data.subject,
-            html: data.message.replace(/\n/g, '<br>'),
+            html: escapeHtml(data.message).replace(/\n/g, '<br>'),
             attachment: {
                 content: attachmentContent,
                 filename: attachment.name,
