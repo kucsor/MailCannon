@@ -203,7 +203,6 @@ const MailCannonPage: FC = () => {
                 content: attachmentContent,
                 filename: attachment.name,
                 type: attachment.type,
-                disposition: 'attachment'
             }
         });
 
@@ -225,7 +224,7 @@ const MailCannonPage: FC = () => {
         toast({
             variant: "destructive",
             title: "Error",
-            description: "An error occurred while sending the email. You may need to configure your SendGrid API key.",
+            description: "An error occurred while sending the email. You may need to configure your Gmail credentials in a .env.local file.",
         });
     } finally {
         setIsSending(false);
@@ -267,7 +266,6 @@ const MailCannonPage: FC = () => {
                                         <Input placeholder="your.name@email.com" {...field} className="pl-10" />
                                     </FormControl>
                                 </div>
-                                <FormDescription>This must be a verified SendGrid sender.</FormDescription>
                                 <FormMessage />
                             </FormItem>
                         )}
